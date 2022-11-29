@@ -14,13 +14,13 @@ library(DataCombine)
 ```{r df_imp}
 # Uploading data and creating vectors from them
 Yelp_data <-
-  read.delim('C:\\Users\\Brand\\Documents\\Yelp_Data',
+  read.delim(file.choose(),
              header = TRUE,
              sep = ",")
 Positive_words <-
-  read.csv("C:\\Users\\Brand\\Documents\\positive-words.csv")
+  read.csv(file.choose())
 Negative_words <-
-  read.csv("C:\\Users\\Brand\\Documents\\negative-words.csv")
+  read.csv(file.choose())
 Positive_words <- as.vector(Positive_words$a.)
 Negative_words <- as.vector(Negative_words$X2.faced)
 
@@ -112,6 +112,6 @@ Clean_Yelp_Data <- Newer_Yelp_Data[, c(2, 6, 13, 14, 15, 16, 17, 3, 4, 5, 7, 8, 
 
 Clean_Yelp_Data
 
-write.csv(Clean_Yelp_Data,"C:\\Users\\Brand\\Documents\\Stats_101C_Updated_Yelp_Data.csv", row.names = FALSE)
+write.csv(Clean_Yelp_Data,"Data_Clean", row.names = FALSE)
 
 ```
