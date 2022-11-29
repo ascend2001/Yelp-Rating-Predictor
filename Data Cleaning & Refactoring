@@ -1,0 +1,117 @@
+---
+title: "Final_Project"
+author: "Brandon Hirano"
+date: '2022-11-28'
+output: pdf_document
+---
+
+```{r lib_imp, include=FALSE}
+#import libraries here
+library(dplyr)
+library(DataCombine)
+```
+
+```{r df_imp}
+# Uploading data and creating vectors from them
+Yelp_data <-
+  read.delim('C:\\Users\\Brand\\Documents\\Yelp_Data',
+             header = TRUE,
+             sep = ",")
+Positive_words <-
+  read.csv("C:\\Users\\Brand\\Documents\\positive-words.csv")
+Negative_words <-
+  read.csv("C:\\Users\\Brand\\Documents\\negative-words.csv")
+Positive_words <- as.vector(Positive_words$a.)
+Negative_words <- as.vector(Negative_words$X2.faced)
+
+# Getting rid of useless columns
+Yelp_data <- Yelp_data[,-c(2, 3, 9, 10, 16, 17)]
+
+# Creating empty data frames to hold positive & negative words, and also the number
+# of positive and negative words
+positive_word_counter <- data.frame()
+positive_column <- data.frame()
+
+negative_word_counter <- data.frame()
+negative_column <- data.frame()
+
+for (i in 1:length(Yelp_data[, 1])) {
+  # Positive words
+  positive_word_counter[i, 1] <-
+    length(Positive_words[which(Positive_words %in% tolower(unlist(
+      strsplit(Yelp_data$Review[i], "[():;.,!\n\ ]")
+    )) == TRUE)])
+  
+  if (paste(Positive_words[which(Positive_words %in% tolower(unlist(
+    strsplit(Yelp_data$Review[i], "[():;.,!\n\ ]")
+  )) == TRUE)], collapse = ", ") == "") {
+    positive_column[i, 1] <- NA
+  } else {
+    positive_column[i, 1] <-
+      paste(Positive_words[which(Positive_words %in% tolower(unlist(
+        strsplit(Yelp_data$Review[i], "[():;.,!\n\ ]")
+      )) == TRUE)], collapse = ", ")
+  }
+  
+  # Negative words
+  negative_word_counter[i, 1] <-
+    length(Negative_words[which(Negative_words %in% tolower(unlist(
+      strsplit(Yelp_data$Review[i], "[():;.,!\n\ ]")
+    )) == TRUE)])
+  
+  if (paste(Negative_words[which(Negative_words %in% tolower(unlist(
+    strsplit(Yelp_data$Review[i], "[():;.,!\n\ ]")
+  )) == TRUE)], collapse = ", ") == "") {
+    negative_column[i, 1] <- NA
+  } else {
+    negative_column[i, 1] <-
+      paste(Negative_words[which(Negative_words %in% tolower(unlist(
+        strsplit(Yelp_data$Review[i], "[():;.,!\n\ ]")
+      )) == TRUE)], collapse = ", ")
+  }
+}
+
+
+
+colnames(positive_word_counter) <- c("Positive Word Counter")
+colnames(positive_column) <- c("Positive Words in Review")
+colnames(negative_word_counter) <- c("Negative Word Counter")
+colnames(negative_column) <- c("Negative Words in Review")
+
+# Empty data frame to hold ratio values
+ratio <- data.frame()
+
+# Obtaining a ratio of positive to negative words
+for (j in 1:53845) {
+  if (positive_word_counter[j, ] == 0 &&
+      negative_word_counter[j, ] == 0) {
+    ratio[j, 1] <- NA
+  } else {
+    ratio[j, 1] <-
+      round((positive_word_counter[j, ] - negative_word_counter[j, ]) / (positive_word_counter[j, ] + negative_word_counter[j, ]),
+            4)
+  }
+  
+  
+}
+
+colnames(ratio) <- c("Ratio of Positive to Negative Words")
+
+
+Newer_Yelp_Data <-
+  cbind(
+    Yelp_data,
+    positive_column,
+    negative_column,
+    positive_word_counter,
+    negative_word_counter,
+    ratio
+  )
+
+Clean_Yelp_Data <- Newer_Yelp_Data[, c(2, 6, 13, 14, 15, 16, 17, 3, 4, 5, 7, 8, 9, 10, 11, 12)]
+
+Clean_Yelp_Data
+
+write.csv(Clean_Yelp_Data,"C:\\Users\\Brand\\Documents\\Stats_101C_Updated_Yelp_Data.csv", row.names = FALSE)
+
+```
