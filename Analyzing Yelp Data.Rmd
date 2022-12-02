@@ -1,0 +1,67 @@
+---
+title: "Analyzing Yelp Data"
+output: pdf_document
+---
+
+```{r}
+clean_data = read.csv("/Users/jeekeatwah/Downloads/Stats 101C Files/Data_Clean")
+```
+
+```{r}
+# analyzing positive to negative words ratio
+postoneg_1 = clean_data[clean_data$Ratio.of.Positive.to.Negative.Words == 1, ]
+nrow(postoneg_1)
+table(postoneg_1$Star)
+```
+
+```{r}
+# positive to negative words ratio > 0.5
+postoneg_0.5 = clean_data[clean_data$Ratio.of.Positive.to.Negative.Words > 0.5, ]
+nrow(postoneg_0.5)
+table(postoneg_0.5$Star)
+```
+Ratio > 0.5, higher likelihood of a higher star from a user
+
+```{r}
+table(postoneg_0.5$Bus_Ave_Star)
+```
+Ratio > 0.5, higher likelihood of having a higher business average rating
+
+```{r}
+# stars >= 4
+starg4 = clean_data[clean_data$Star >= 4, ]
+hist(starg4$Users_Ave_Star)
+```
+For individual reviews greater than or equal to 4 stars, the user's average star rating is not a factor
+
+
+Since the dataset only contains users who have more than 150 total reviews, their ratings are, on average, pretty close to the actual average business rating
+```{r}
+stardiff_mean = mean(clean_data$Star - clean_data$Bus_Ave_Star)
+stardiff_mean
+```
+
+The higher the popularity of a user's reviews (useful, cool, funny), the closer the user's rating to the actual business rating
+```{r}
+useful_median = median(clean_data$User_Useful_count)
+funny_upmedian = median(clean_data$User_Funny_count)
+cool_upmedian = median(clean_data$User_Cool_count)
+```
+
+```{r}
+user_useful = clean_data[clean_data$User_Useful_count > useful_median, ]
+(stardiff_mean - mean(user_useful$Star - user_useful$Bus_Ave_Star)) / stardiff_mean
+```
+Users that are more "useful" are 13.4% closer to the actual business rating than the overall mean
+
+```{r}
+user_funny = clean_data[clean_data$User_Useful_count > funny_upmedian, ]
+(stardiff_mean - mean(user_funny$Star - user_funny$Bus_Ave_Star)) / stardiff_mean
+```
+Users that are more "funny" are 15.7% closer to the actual business rating than the overall mean
+
+```{r}
+user_cool = clean_data[clean_data$User_Useful_count > cool_upmedian, ]
+(stardiff_mean - mean(user_cool$Star - user_cool$Bus_Ave_Star)) / stardiff_mean
+```
+Users that are more "cool" are 20.1% closer to the actual business rating than the overall mean
