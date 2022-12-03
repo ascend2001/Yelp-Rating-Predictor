@@ -9,11 +9,12 @@ output: pdf_document
 #import libraries here
 library(dplyr)
 library(DataCombine)
+library(purrr)
 ```
 
 ```{r df_imp}
 # Uploading data and creating vectors from them
-Yelp_data <-
+raw_data <-
   read.delim(file.choose(),
              header = TRUE,
              sep = ",")
@@ -23,9 +24,17 @@ Negative_words <-
   read.csv(file.choose())
 Positive_words <- as.vector(Positive_words$a.)
 Negative_words <- as.vector(Negative_words$X2.faced)
+```
+
+```{r process}
 
 # Getting rid of useless columns
-Yelp_data <- Yelp_data[,-c(2, 3, 9, 10, 16, 17)]
+Yelp_data <- raw_data[,-c(2, 3, 9, 10, 16, 17)]
+
+elite_processing<- function(x){
+  length(unlist(strsplit(x, ",")))
+}
+raw_data['Elite_count'] = sapply(raw_data[['Elite']], elite_processing)
 
 # Creating empty data frames to hold positive & negative words, and also the number
 # of positive and negative words
@@ -110,7 +119,7 @@ Newer_Yelp_Data <-
 
 Clean_Yelp_Data <- Newer_Yelp_Data[, c(2, 6, 13, 14, 15, 16, 17, 3, 4, 5, 7, 8, 9, 10, 11, 12)]
 
-Clean_Yelp_Data
+Clean_Yelp_Data['Elite Count'] <- raw_data['Elite_count']
 
 write.csv(Clean_Yelp_Data,"Data_Clean", row.names = FALSE)
 

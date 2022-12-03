@@ -1,0 +1,575 @@
+---
+title: "Modelling_Trees_Regression"
+author: "Avnish Sengupta"
+date: '2022-11-30'
+output: pdf_document
+---
+
+```{r setup}
+library('car')
+library('corrplot')
+library('MASS')
+library(nnet)
+library(ggplot2)
+
+library(DAAG)
+library(party)
+library(rpart)
+library(rpart.plot)
+library(mlbench)
+library(caret)
+library(pROC)
+library(tree)
+library(randomForest)
+library(pdp)
+library(cld2)
+library(cld3)
+library(e1071)
+library(caTools)
+library(class)
+```
+
+Run in Parallel
+```{r rparallel}
+library(doParallel) 
+cl <- makeCluster(detectCores() - 1, outfile="")
+registerDoParallel(cl)
+
+```
+
+```{r data_setup}
+#importing data
+raw_data<-read.csv(file.choose(), header=TRUE)
+raw_data<- raw_data[-c(3, 4)]
+raw_data$Ratio.of.Positive.to.Negative.Words[is.na(raw_data$Ratio.of.Positive.to.Negative.Words)] <- 0
+raw_data$Review.Language <-detect_language(raw_data$Review)
+raw_data<- na.omit(raw_data)
+```
+
+```{r lang}
+raw_data<-raw_data[raw_data$Review.Language == "en", ]
+raw_data<- raw_data[!(raw_data$Positive.Word.Counter == 0 & raw_data$Negative.Word.Counter == 0), ]
+raw_data$Review[is.na(raw_data$Star)]
+```
+
+
+```{r numeric}
+#removing non-numeric columns
+numeric_cols<-sapply(raw_data, is.numeric)
+numeric_cols['Star']<-TRUE
+numeric_data<-raw_data[, numeric_cols]
+
+numeric_data['Sentimental_Rating'] = numeric_data['Users_Ave_Star'] * numeric_data['Ratio.of.Positive.to.Negative.Words']
+
+numeric_data["Alt_Star"]<- sapply(numeric_data[["Star"]], function(x){paste("Class", x, sep="_")})
+
+numeric_data$Star<-as.factor(numeric_data$Star)
+```
+
+Preprocessing
+```{r preprocess}
+# Splitting data into train
+# and test data
+split <- sample.split(numeric_data, SplitRatio = 0.7)
+
+train_cl <- droplevels(subset(numeric_data, split == "TRUE"))
+#train_cl$Star<-as.factor(train_cl$Star)
+
+test_cl <- droplevels(subset(numeric_data, split == "FALSE"))
+#test_cl$Star<-as.factor(test_cl$Star)
+
+# Feature Scaling
+train_scale <- scale(train_cl[, 2:14])
+test_scale <- scale(test_cl[, 2:14])
+
+
+data.training <- train_cl
+data.test <- test_cl
+```
+
+Feature Selection
+```{r fs}
+# ensure the results are repeatable
+set.seed(7)
+
+# define the control using a random forest selection function
+control <- rfeControl(functions=rfFuncs, method="cv", number=10)
+
+# run the RFE algorithm
+results <- rfe(train_cl[,2:15], train_cl[,1], sizes=c(1, 5, 7, 13), method = "rf", trControl = trainControl(method = "cv",classProbs = TRUE), tuneGrid = data.frame(k = 1:10), rfeControl=control)
+# summarize the results
+print(results)
+# list the chosen features
+predictors(results)
+# plot the results
+plot(results, type=c("g", "o"))
+
+```
+
+KNN Classifier
+```{r knn}
+# Fitting KNN Model 
+# to training dataset
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$Star,
+                      k = 1)
+  
+# Confusion Matrix
+cm <- table(True=test_cl$Star, Predicted=classifier_knn)
+cm
+```
+
+Model Evaluation
+```{r eval}
+# Model Evaluation - Choosing K
+accuracy_vec<-c(0)
+# Calculate out of Sample error
+misClassError <- mean(classifier_knn != test_cl$Star)
+print(paste('Accuracy =', 1-misClassError))
+accuracy_vec<-append(accuracy_vec, 1-misClassError)
+  
+# K = 3
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$Star,
+                      k = 3)
+misClassError <- mean(classifier_knn != test_cl$Star)
+print(paste('Accuracy =', 1-misClassError))
+accuracy_vec<-append(accuracy_vec, 1-misClassError)
+  
+# K = 5
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$Star,
+                      k = 5)
+misClassError <- mean(classifier_knn != test_cl$Star)
+print(paste('Accuracy =', 1-misClassError))
+accuracy_vec<-append(accuracy_vec, 1-misClassError)
+  
+# K = 7
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$Star,
+                      k = 7)
+misClassError <- mean(classifier_knn != test_cl$Star)
+print(paste('Accuracy =', 1-misClassError))
+accuracy_vec<-append(accuracy_vec, 1-misClassError)
+  
+# K = 15
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$Star,
+                      k = 15)
+misClassError <- mean(classifier_knn != test_cl$Star)
+print(paste('Accuracy =', 1-misClassError))
+accuracy_vec<-append(accuracy_vec, 1-misClassError)
+  
+# K = 19
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$Star,
+                      k = 19)
+misClassError <- mean(classifier_knn != test_cl$Star)
+print(paste('Accuracy =', 1-misClassError))
+accuracy_vec<-append(accuracy_vec, 1-misClassError)
+
+# K = 35
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$Star,
+                      k = 35)
+misClassError <- mean(classifier_knn != test_cl$Star)
+print(paste('Accuracy =', 1-misClassError))
+accuracy_vec<-append(accuracy_vec, 1-misClassError)
+
+data <- data.frame("K_Values"=c(0,1,3,5,7,15,19,35), "Accuracy"=accuracy_vec)
+ggplot(data, aes(x=K_Values, y=Accuracy)) +
+  geom_line()
+
+accuracy_vec
+```
+
+KNN CLassifer TESTING ZONE:
+```{r knn_classifier}
+knn.acc.vec<-c()
+for (x in 1:20){
+  split <- sample.split(numeric_data, SplitRatio = 0.7)
+
+  train_cl <- droplevels(subset(numeric_data, split == "TRUE"))
+  #train_cl$Star<-as.factor(train_cl$Star)
+  
+  test_cl <- droplevels(subset(numeric_data, split == "FALSE"))
+  #test_cl$Star<-as.factor(test_cl$Star)
+  
+  # Feature Scaling
+  train_scale <- scale(train_cl[, 2:14])
+  test_scale <- scale(test_cl[, 2:14])
+  
+  classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$Star,
+                      k = 20)
+  
+  knn.misClassError <- mean(classifier_knn != test_cl$Star)
+
+  knn.acc<-1-knn.misClassError
+  knn.acc.vec<-append(knn.acc.vec, knn.acc)
+  
+}
+
+knn.data <- data.frame("Iter"=1:20,"Accuracy"=knn.acc.vec)
+
+# Plot
+ggplot(knn.data, aes(x=Iter, y=Accuracy, color="Blue")) +
+  geom_line() + geom_hline(yintercept=mean(knn.data$Accuracy))
+
+mean(knn.data$Accuracy)
+
+```
+Multinomial Logistic Regression
+```{r multinom}
+
+ml <- multinom(Star ~ Positive.Word.Counter + Negative.Word.Counter  + Ratio.of.Positive.to.Negative.Words + Sentimental_Rating + Useful + Cool + Funny + Bus_Ave_Star + Users_Ave_Star+ User_Useful_count + User_Cool_count + User_Funny_count, data = train_cl[ , 1:15])
+
+summary(ml)
+```
+
+Predictions and Performance
+```{r pred}
+predictions<-predict(ml, test_cl[2:15], type="class")
+
+#confusion matrix
+cm_reg <- table(True=test_cl$Star, Predicted=predictions)
+cm_reg
+```
+
+
+
+Accuracy
+```{r reg_acc}
+reg.misClassError<- mean(predictions != test_cl$Star)
+reg.acc<-1-reg.misClassError
+
+reg.acc
+```
+
+Logistic Regression TESTING ZONE:
+```{r logtest}
+log.acc.vec<-c()
+for (x in 1:20){
+  split <- sample.split(numeric_data, SplitRatio = 0.7)
+
+  train_cl <- droplevels(subset(numeric_data, split == "TRUE"))
+  #train_cl$Star<-as.factor(train_cl$Star)
+  
+  test_cl <- droplevels(subset(numeric_data, split == "FALSE"))
+  #test_cl$Star<-as.factor(test_cl$Star)
+  
+  ml <- multinom(Star ~ Positive.Word.Counter + Negative.Word.Counter  + Ratio.of.Positive.to.Negative.Words + Sentimental_Rating + Useful + Cool + Funny + Bus_Ave_Star + Users_Ave_Star+ User_Useful_count + User_Cool_count + User_Funny_count, data = train_cl[ , 1:15])
+  
+  predictions<-predict(ml, test_cl[2:15], type="class")
+  
+  reg.misClassError<- mean(predictions != test_cl$Star)
+  reg.acc<-1-reg.misClassError
+  log.acc.vec<-append(log.acc.vec, reg.acc)
+  
+}
+
+reg.data <- data.frame("Iter"=1:20,"Accuracy"=log.acc.vec)
+
+# Plot
+reg.data$Accuracy
+ggplot(reg.data, aes(x=Iter, y=Accuracy, color="Blue")) +
+  geom_line() + geom_hline(yintercept=mean(reg.data$Accuracy))
+
+mean(reg.data$Accuracy)
+
+```
+Support Vector Machines:
+
+Linear SVM
+```{r svm}
+svm_model_linear <- svm(Star ~ Positive.Word.Counter + Negative.Word.Counter  + Ratio.of.Positive.to.Negative.Words + Sentimental_Rating + Useful + Cool + Funny + Bus_Ave_Star + Users_Ave_Star+ User_Useful_count + User_Cool_count + User_Funny_count, 
+             data = train_cl[, 1:15], 
+             type = "C-classification",
+             kernel = "linear",
+             probability = TRUE)
+
+summary(svm_model_linear)
+```
+
+Predictions and Performance
+```{r pred}
+linear.svm.predictions<-predict(svm_model_linear, test_cl[2:15], type="class")
+
+#confusion matrix
+linear_svm.cm_reg <- table(True=test_cl$Star, Predicted=predictions)
+linear_svm.cm_reg
+```
+
+Accuracy
+```{r reg_acc}
+linear.svm.misClassError<- mean(linear.svm.predictions != test_cl$Star)
+linear.svm.acc<-1-linear.svm.misClassError
+
+linear.svm.acc
+```
+
+TESTING ZONE
+```{r lsvm}
+svm.acc<-c()
+for(x in 1:20){
+  print(x)
+  split <- sample.split(numeric_data, SplitRatio = 0.7)
+
+  train_cl <- droplevels(subset(numeric_data, split == "TRUE"))
+  #train_cl$Star<-as.factor(train_cl$Star)
+  
+  test_cl <- droplevels(subset(numeric_data, split == "FALSE"))
+  #test_cl$Star<-as.factor(test_cl$Star)
+  
+  shuffle_index <- sample(1:nrow(train_cl))
+  
+  
+  svm_model_linear <- svm(Star ~ Positive.Word.Counter + Negative.Word.Counter  + Ratio.of.Positive.to.Negative.Words + Sentimental_Rating + Useful + Cool + Funny + Bus_Ave_Star + Users_Ave_Star+ User_Useful_count + User_Cool_count + User_Funny_count, 
+             data = train_cl[, 1:15], 
+             type = "C-classification",
+             kernel = "linear",
+             probability = TRUE)
+  
+  linear.svm.predictions<-predict(svm_model_linear, test_cl[2:15], type="class")
+  
+  linear.svm.misClassError<- mean(linear.svm.predictions != test_cl$Star)
+  linear.svm.acc<-1-linear.svm.misClassError
+  
+  svm.acc<- append(svm.acc, linear.svm.acc)
+}
+
+svm.data <- data.frame("Iter"=1:20,"Accuracy"=svm.acc)
+
+# Plot
+
+ggplot(svm.data, aes(x=Iter, y=Accuracy, color="Blue")) +
+  geom_line() + geom_hline(yintercept = mean(svm.data$Accuracy))
+
+ mean(svm.data$Accuracy)
+```
+
+Non-Linear SVM
+```{r svm2}
+svm_model_radial <- svm(Star ~ Positive.Word.Counter + Negative.Word.Counter  + Ratio.of.Positive.to.Negative.Words + Sentimental_Rating + Useful + Cool + Funny + Bus_Ave_Star + Users_Ave_Star+ User_Useful_count + User_Cool_count + User_Funny_count, 
+             data = train_cl[, 1:15], 
+             type = "C-classification",
+             kernel = "radial",
+             probability = TRUE)
+
+summary(svm_model_radial)
+```
+
+Predictions and Performance
+```{r pred}
+radial.svm.predictions<-predict(svm_model_radial, test_cl[2:15], type="class")
+
+#confusion matrix
+radial_svm.cm <- table(True=test_cl$Star, Predicted=radial.svm.predictions)
+radial_svm.cm
+```
+
+Accuracy
+```{r reg_acc}
+radial.svm.misClassError<- mean(radial.svm.predictions != test_cl$Star)
+radial.svm.acc<-1-radial.svm.misClassError
+
+radial.svm.acc
+```
+
+
+correlation matrix
+```{r corr}
+corr_matrix<-round(cor(numeric_data, use='pairwise.complete.obs'), 3)
+corr_matrix
+```
+
+```{r corr_plot}
+corrplot.mixed(corr_matrix)
+```
+
+```{r forwardAIC}
+stepAIC(model_full, k = log(nrow(data.training)),trace=TRUE)
+```
+
+
+Decision Trees
+Plotting a tree
+```{r tree}
+shuffle_index <- sample(1:nrow(train_cl))
+control<-rpart.control(minsplit = 570,
+    minbucket = round(570 / 4),
+    maxdepth = 4,
+    cp = 0)
+tree <- rpart(Star ~., data = train_cl[shuffle_index,1:15], method='class', control=control)
+rpart.plot(tree)
+```
+Finding the best depth
+```{r depth}
+depth.acc<-c()
+for (x in 1:30){
+  shuffle_index <- sample(1:nrow(train_cl))
+  control<-rpart.control(minsplit = 570,
+    minbucket = round(570 / x),
+    maxdepth = x,
+    cp = 0)
+  tree <- rpart(Star ~., data = train_cl[shuffle_index,1:15], method='class', control=control)
+  
+  predict_unseen <- predict(tree, test_cl[2:15], type = 'class')
+  table_mat <- table(test_cl$Star, predict_unseen)
+  accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
+  depth.acc<-append(depth.acc, accuracy_Test)
+}
+
+depth.acc
+max_acc<-max(depth.acc)
+tree.data <- data.frame("Depth"=1:30,"Accuracy"=depth.acc)
+
+tree.data$Depth[tree.data$Accuracy==max_acc]
+
+# Plot
+ggplot(tree.data, aes(x=Depth, y=Accuracy, color="Blue")) +
+  geom_line()
+
+```
+Decision tree TESTING ZONE
+
+```{r dt}
+tree.acc<-c()
+for (x in 1:20){
+  split <- sample.split(numeric_data, SplitRatio = 0.7)
+
+  train_cl <- droplevels(subset(numeric_data, split == "TRUE"))
+  #train_cl$Star<-as.factor(train_cl$Star)
+  
+  test_cl <- droplevels(subset(numeric_data, split == "FALSE"))
+  #test_cl$Star<-as.factor(test_cl$Star)
+  
+  shuffle_index <- sample(1:nrow(train_cl))
+  control<-rpart.control(minsplit = 570,
+    minbucket = round(570 / 11),
+    maxdepth = 11,
+    cp = 0)
+  tree <- rpart(Star ~., data = train_cl[shuffle_index,1:15], method='class', control=control)
+  
+  predict_unseen <- predict(tree, test_cl[2:15], type = 'class')
+  table_mat <- table(test_cl$Star, predict_unseen)
+  accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
+  tree.acc<-append(tree.acc, accuracy_Test)
+}
+
+
+tree.data <- data.frame("Iter"=1:20,"Accuracy"=tree.acc)
+
+# Plot
+
+tree.acc
+ggplot(tree.data, aes(x=Iter, y=Accuracy, color="Blue")) +
+  geom_line() + geom_hline(yintercept = mean(tree.data$Accuracy))
+
+ mean(tree.data$Accuracy)
+
+```
+
+Performance
+```{r tree}
+predict_unseen <- predict(tree, test_cl[2:15], type = 'class')
+table_mat <- table(test_cl$Star, predict_unseen)
+accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
+accuracy_Test
+```
+
+Random Forest Regression
+Determine best predictor using variable importance plots:
+```{r imp}
+forestfit.RF <- randomForest(as.factor(Alt_Star)~., data = train_cl[ , 2:16], method = 'rf', importance = TRUE) 
+```
+
+```{r varImpPlot}
+# This shows the Variable Permutation Importance, and the correct one
+# according to the experts.
+varImpPlot(forestfit.RF, scale = F) ## get both plots for variable importance
+```
+
+Use the out-of-bag estimator to select the optimal parameter values.
+```{r oob}
+# Fit classification tree using the 'randomForest' library.
+set.seed(123)
+
+# Use the out-of-bag estimator to select the optimal parameter values.
+# Here, we specify how we will evaluate our models
+oob_train_control <- trainControl(method="oob", 
+                                  classProbs = TRUE, 
+                                  savePredictions = TRUE)
+
+# We find the best value for m using cross validation
+
+forestfit <- train(as.factor(Alt_Star)~ Positive.Word.Counter + Negative.Word.Counter  + Ratio.of.Positive.to.Negative.Words + Sentimental_Rating + Useful + Cool + Funny + Bus_Ave_Star + Users_Ave_Star+ User_Useful_count + User_Cool_count + User_Funny_count, data = train_cl[ , 2:16], method = 'rf', importance = TRUE, trControl = oob_train_control) # It takes slightly longer than a standard decision tree.
+
+
+plot(forestfit)
+```
+
+
+
+Performance
+```{r perf}
+predict_unseen <- predict(forestfit, test_cl[2:15], type = 'raw')
+
+table_mat <- table(True = test_cl$Star, Predicted = as.numeric(predict_unseen))
+accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
+accuracy_Test
+table_mat
+
+```
+
+
+RANDOM FOREST TESTING ZONE
+```{r rf_test}
+
+rf.acc<-c()
+# We find the best value for m using cross validation
+for (x in 1:20){
+  print(x)
+ split <- sample.split(numeric_data, SplitRatio = 0.7)
+
+  train_cl <- droplevels(subset(numeric_data, split == "TRUE"))
+  #train_cl$Star<-as.factor(train_cl$Star)
+  
+  test_cl <- droplevels(subset(numeric_data, split == "FALSE"))
+  #test_cl$Star<-as.factor(test_cl$Star)
+  
+  shuffle_index <- sample(1:nrow(train_cl))
+  
+  
+  forestfit <- train(as.factor(Alt_Star)~ Positive.Word.Counter + Negative.Word.Counter  + Ratio.of.Positive.to.Negative.Words + Sentimental_Rating + Useful + Cool + Funny + Bus_Ave_Star + Users_Ave_Star+ User_Useful_count + User_Cool_count + User_Funny_count, data = train_cl[ , 2:16], method = 'rf', importance = TRUE, trControl = trainControl(method="cv", number = 5, 
+                              classProbs = TRUE, 
+                              savePredictions = TRUE)) # It takes slightly longer than a standard decision tree.
+  
+  predict_unseen <- predict(forestfit, test_cl[2:15], type = 'raw')
+  table_mat <- table(test_cl$Star, predict_unseen)
+  accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
+  rf.acc<-append(rf.acc, accuracy_Test)
+
+}
+
+rf.data <- data.frame("Iter"=1:2,"Accuracy"=rf.acc)
+
+# Plot
+
+ggplot(rf.data, aes(x=Iter, y=Accuracy, color="Blue")) +
+  geom_line() + geom_hline(yintercept = mean(rf.data$Accuracy))
+
+ mean(rf.data$Accuracy)
+
+```
+
+using all the predictors using RF
+using predict
